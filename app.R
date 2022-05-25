@@ -1,7 +1,7 @@
 library(shiny)
 
 # remove this when deploying app
-# setwd("~/Documents/areadata-app/")
+#setwd("~/Documents/areadata-app/")
 
 # Relevant reviewer's comment:
 #  "This should be done by creating a dynamic web (i.e. create several buttons) that allow users to select
@@ -80,8 +80,10 @@ server <- function(input, output, session) {
     if(input$states == "--All--"){
       final_data <- country_data
     } else{
-      state_id <- unique(name_matching[name_matching$NAME_0 == input$country & name_matching$NAME_1 == input$states,]$NAME_1)
-      final_data <- country_data[grepl(state_id, rownames(country_data)),]
+      state_id <- unique(name_matching[name_matching$NAME_0 == input$country & name_matching$NAME_1 == input$states,]$GID_1)
+      # get all counties with this state ID
+      county_ids <- unique(name_matching[name_matching$GID_1 == state_id,]$GID_2)
+      final_data <- country_data[rownames(country_data) %in% county_ids,]
     }
     })
   })
