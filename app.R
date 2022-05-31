@@ -31,6 +31,8 @@ ui <- fluidPage(
                   choices = unique(name_matching$NAME_0)),
       selectInput("states", "Choose a State:",
                   choices = "--All--"),
+      selectInput("counties", "Choose a County:",
+                  choices = "--All--"),
       
       # Button
       downloadButton("downloadData", "Download")
@@ -40,8 +42,17 @@ ui <- fluidPage(
     # Main panel for displaying outputs ----
     mainPanel(
       
-      tableOutput("table")
-      
+      h1("Download Instructions"),
+      p("This app loads county-level AREAdata files (GID2), subsets them according to the your requirements, and provides a .txt file download."),
+      p("See",
+        a("the github page", 
+          href = "https://pearselab.github.io/areadata"), 
+          "for full details of how this data is generated and processed."),
+      p("1. Select a climate variable you wish to download."),
+      p("2. Select a country from which you would like to download county-level data (to download for all counties in all countries, see the main github site)."),
+      p("3. Select a state within which you would like to download county data, or select '--All--' if you wish to download data from all counties within the selected country."),
+      p("4. Select a county which you would like to download data for, or select '--All--' if you wish to download data from all counties within the selected state."),
+      p("5. Click 'download', there will be a short pause while the download file is generated for you.")
     )
     
   )
@@ -68,7 +79,13 @@ server <- function(input, output, session) {
     state_choices <- unique(name_matching[name_matching$NAME_0 == input$country,]$NAME_1)
     
     updateSelectInput(session, "states", choices = c("--All--", state_choices))
-    
+  })
+  
+  observe({
+    if(input$states != "--All--"){
+      county_choices <- unique(name_matching[name_matching$NAME_1 == input$states,]$NAME_2)
+      updateSelectInput(session, "counties", choices = c("--All--", county_choices))
+    }
   })
   
   # create the output dataset based on inputs
@@ -79,11 +96,16 @@ server <- function(input, output, session) {
     country_data <- datasetInput()[grepl(country_id, rownames(datasetInput())),]
     if(input$states == "--All--"){
       final_data <- country_data
-    } else{
+    } else if(input$counties == "--All--"){
       state_id <- unique(name_matching[name_matching$NAME_0 == input$country & name_matching$NAME_1 == input$states,]$GID_1)
       # get all counties with this state ID
       county_ids <- unique(name_matching[name_matching$GID_1 == state_id,]$GID_2)
       final_data <- country_data[rownames(country_data) %in% county_ids,]
+    } else{
+      # get single county ID
+      county_id <- unique(name_matching[name_matching$NAME_0 == input$country & name_matching$NAME_1 == input$states &
+                                          name_matching$NAME_2 == input$counties,]$GID_2)
+      final_data <- country_data[rownames(country_data) == county_id,]
     }
     })
   })
@@ -94,17 +116,20 @@ server <- function(input, output, session) {
   #   country_data()[1,]
   # })
 
-  # Downloadable csv of selected dataset ----
+  # Downloadable .txt of selected dataset ----
   output$downloadData <- downloadHandler(
     filename = function() {
       selected <- input$country
       if (input$states != "--All--") {
         selected <-c(selected, input$states)
       }
-      paste(paste(selected, collapse="-"), ".csv", sep = "")
+      if (input$counties != "--All--"){
+        selected <- c(selected, input$counties)
+      }
+      paste(paste(selected, collapse="-"), ".txt", sep = "")
     },
     content = function(con) {
-      write.csv(final_data(), con, row.names = TRUE)
+      write.table(final_data(), con, row.names = TRUE)
     }
   )
 
